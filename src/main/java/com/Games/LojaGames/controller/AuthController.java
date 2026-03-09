@@ -1,15 +1,21 @@
 package com.Games.LojaGames.controller;
 
+import com.Games.LojaGames.security.JWTUtil;
 import com.Games.LojaGames.dto.UsuarioLoginDTO;
 import com.Games.LojaGames.dto.UsuarioRegistroDTO;
 import com.Games.LojaGames.model.Usuario;
 import com.Games.LojaGames.repository.UsuarioRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -24,23 +30,35 @@ public class AuthController {
     @Autowired
     private UsuarioRepository repository;
 
+    @Autowired
+    private JWTUtil jwtUtil;
+
     @PostMapping("/login")
     public ResponseEntity login(@RequestBody UsuarioLoginDTO data) {
-        var usernamePassword = new UsernamePasswordAuthenticationToken(data.nomeUsuario(), data.senha());
-        var auth = this.authenticationManager.authenticate(usernamePassword);
-        
-        Usuario usuario = (Usuario) auth.getPrincipal();
-        
-        String token = "TOKEN_A_SER_GERADO_PELO_JWTUTIL_DO_JOAO";
 
-        return ResponseEntity.ok(Map.of(
-                "nomeUsuario", usuario.getNomeUsuario(),
-                "token", token
-        ));
+        var usernamePassword =
+                new UsernamePasswordAuthenticationToken(
+                        data.nomeUsuario(),
+                        data.senha()
+                );
+
+        var auth = this.authenticationManager.authenticate(usernamePassword);
+
+        Usuario usuario = (Usuario) auth.getPrincipal();
+
+        String token = jwtUtil.gerarToken(usuario);
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "nomeUsuario", usuario.getNomeUsuario(),
+                        "token", token
+                )
+        );
     }
 
     @PostMapping("/registrar")
     public ResponseEntity registrar(@RequestBody UsuarioRegistroDTO data) {
+
         if (data.nomeUsuario() == null) {
             return ResponseEntity.badRequest().build();
         }
@@ -49,9 +67,11 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
 
-        String encryptedPassword = new BCryptPasswordEncoder().encode(data.senha());
-        
+        String encryptedPassword =
+                new BCryptPasswordEncoder().encode(data.senha());
+
         Usuario novoUsuario = new Usuario();
+
         novoUsuario.setNomeUsuario(data.nomeUsuario());
         novoUsuario.setEmail(data.email());
         novoUsuario.setSenha(encryptedPassword);
